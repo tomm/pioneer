@@ -190,7 +190,7 @@ define_model('hhbridge', {
 			texture('bridge1L.png')
 		end
 		use_material('steel')
-		load_obj('hh_Bridge_main.obj')
+		load_obj('hh_bridge_main.obj')
 		load_obj('hh_Bridge_front.obj')
 		use_material('rand1')
 		load_obj('hh_Bridge_colour1.obj')
