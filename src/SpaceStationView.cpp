@@ -460,8 +460,8 @@ void StationViewShipView::ShowAll()
 
 	{
 		int drivetype = Equip::DRIVE_CLASS1;
-		for (int x = 420; (drivetype < Equip::TYPE_MAX) && (EquipType::types[drivetype].slot == Equip::SLOT_ENGINE);
-				drivetype++, x+=52) {
+		for (int x = 410; (drivetype < Equip::TYPE_MAX) && (EquipType::types[drivetype].slot == Equip::SLOT_ENGINE);
+				drivetype++, x+=44) {
 			int hyperclass = EquipType::types[drivetype].pval;
 			float range = Pi::CalcHyperspaceRange(hyperclass, t.hullMass + t.capacity);
 			Add(new Gui::Label(stringf(128, "Class %d", hyperclass)), x, y);
