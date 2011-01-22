@@ -5,6 +5,7 @@
 #include "ShipCpanel.h"
 #include "Player.h"
 #include "Polit.h"
+#include "Space.h"
 
 SystemInfoView::SystemInfoView(): GenericSystemView(GenericSystemView::MAP_INFO)
 {
@@ -21,7 +22,13 @@ void SystemInfoView::OnBodySelected(SBody *b)
 
 	SBodyPath path;
 	m_system->GetPathOf(b, &path);
-	Pi::player->SetHyperspaceTarget(&path);
+	if(Pi::currentSystem->SystemIdx() != m_system->SystemIdx()) {
+		Pi::player->SetHyperspaceTarget(&path);
+	} else  {
+		Body* body = Space::FindBodyForSBodyPath(&path);
+		if(body != 0)
+			Pi::player->SetNavTarget(body);
+	}
 
 	std::string desc, data;
 
