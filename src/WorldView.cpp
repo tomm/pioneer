@@ -892,7 +892,7 @@ void WorldView::UpdateCommsOptions()
 			}
 		}
 		if (Pi::player->m_equipment.Get(Equip::SLOT_AUTOPILOT) == Equip::AUTOPILOT) {
-			button = AddCommsOption("Autopilot: Fly to vacinity of " + navtarget->GetLabel(), ypos, optnum++);
+			button = AddCommsOption("Autopilot: Fly to vicinity of " + navtarget->GetLabel(), ypos, optnum++);
 			button->onClick.connect(sigc::bind(sigc::ptr_fun(player_do_autopilot), navtarget, Ship::DO_FLY_TO));
 			ypos += 32;
 
@@ -935,7 +935,7 @@ void WorldView::UpdateCommsOptions()
 	if (comtarget) {
 		m_commsOptions->Add(new Gui::Label("#f00"+comtarget->GetLabel()), 16, (float)ypos);
 		ypos += 32;
-		button = AddCommsOption("Autopilot: Fly to vacinity of "+comtarget->GetLabel(), ypos, optnum++);
+		button = AddCommsOption("Autopilot: Fly to vicinity of "+comtarget->GetLabel(), ypos, optnum++);
 		button->onClick.connect(sigc::bind(sigc::ptr_fun(player_do_autopilot), comtarget, Ship::DO_FLY_TO));
 
 	}
