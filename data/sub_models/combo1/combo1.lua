@@ -130,9 +130,6 @@ define_model('combo0', {
 		end
 		load_obj('combo1_1.obj')
 		
-		use_material('concrete')
-		call_model('bld_base_1', v(0,0,0),v(1,0,0),v(0,1,0),1)
-
 		if lod > 1 then
 
 

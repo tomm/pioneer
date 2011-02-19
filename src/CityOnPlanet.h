@@ -23,6 +23,7 @@ private:
 	void PutCityBit(MTRand &rand, const matrix4x4d &rot, vector3d p1, vector3d p2, vector3d p3, vector3d p4);
 	void AddStaticGeomsToCollisionSpace();
 	void RemoveStaticGeomsFromCollisionSpace();
+	void MakeBuildingBaseGeometry();
 
 	struct BuildingDef {
 		LmrModel *model;
@@ -32,11 +33,15 @@ private:
 		Geom *geom;
 		// may not be at lower detail level
 		bool isEnabled;
+		vector3d rect[4];
+		double height; // from centre of planet
 	};
 
 	const Planet *m_planet;
 	Frame *m_frame;
 	std::vector<BuildingDef> m_buildings;
+	// building bases (square foundations)
+	GLuint m_buildingBaseGeometryVBO;
 	int m_detailLevel;
 };
 

@@ -1,133 +1,4 @@
 
-function bld_base_1(lod,scale)
-
-        local v0 = v(3,0,10)*scale
-		local v1 = v(-3,0,10)*scale
-		local v2 = v(7,0,3)*scale
-        local v4 = v(7,0,-3)*scale
-		local v6 = v(3,0,-7)*scale
-		local v7 = v(-3,0,-7)*scale
-		local v10 = v(3,-50,10)*scale
-		local v11 = v(-3,-50,10)*scale
-		local v12 = v(7,-50,3)*scale
-		local v14 = v(7,-50,-3)*scale
-		local v16 = v(3,-50,-7)*scale
-		local v17 = v(-3,-50,-7)*scale
-
-        local v20 = v(3,1,10)*scale
-		local v21 = v(-3,1,10)*scale
-		local v22 = v(7,1,3)*scale
-        local v24 = v(7,1,-3)*scale
-		local v26 = v(3,1,-7)*scale
-		local v27 = v(-3,1,-7)*scale
-
-        if lod > 1 then
-        	use_material('concrete')
-            texture('conc.png', v(.5,.5,0),v(.05,0,0)/scale,v(0,0,1)/scale)
-    	end
-        xref_quad(v0,v2,v4,v6)
-		quad(v0,v6,v7,v1)
-
-		if lod > 1 then
-		    texture('conc.png', v(.5,.5,0),v(.05,0,0)/scale,v(0,.05,0)/scale)
-  		end
-		quad(v0,v1,v11,v10)
-		quad(v6,v16,v17,v7)
-
-		if lod > 1 then
-		    texture('conc.png', v(.5,.5,0),v(0,0,1/scale),v(0,.05,0)/scale)
-  		end
-		xref_quad(v0,v10,v12,v2)
-		xref_quad(v2,v12,v14,v4)
-		xref_quad(v4,v14,v16,v6)
-
-		if lod > 1 then
-			use_material('fce_glow')
-				
-		   	texture('fence_glow.png', v(.5,.28,0),v(.1,0,0)/scale,v(0,1,0)/scale)
-		    quad(v20,v0,v1,v21)
-			quad(v26,v27,v7,v6)
-
-		    texture('fence_glow.png', v(.5,.28,0),v(0,0,.25)/scale,v(0,1,0)/scale)
-		    xref_quad(v0,v20,v22,v2)
-			xref_quad(v2,v22,v24,v4)
-			xref_quad(v4,v24,v26,v6)
-
-        	texture('fence_glow.png', v(.5,.28,0),v(.1,0,0)/scale,v(0,1,0)/scale)
-			quad(v20,v21,v1,v0)
-			quad(v26,v6,v7,v27)
-
-		    texture('fence_glow.png', v(.5,.28,0),v(0,0,.25)/scale,v(0,1,0)/scale)
-		    xref_quad(v0,v2,v22,v20)
-			xref_quad(v2,v4,v24,v22)
-			xref_quad(v4,v6,v26,v24)
-		end
-end
-
-function bld_base_2(lod,scale)
-
-		local v0 = v(3,0,7)*scale
-		local v1 = v(-3,0,7)*scale
-		local v2 = v(7,0,3)*scale
-        local v4 = v(7,0,-3)*scale
-		local v6 = v(3,0,-7)*scale
-		local v7 = v(-3,0,-7)*scale
-		local v10 = v(3,-40,7)*scale
-		local v11 = v(-3,-40,7)*scale
-		local v12 = v(7,-40,3)*scale
-		local v14 = v(7,-40,-3)*scale
-		local v16 = v(3,-40,-7)*scale
-		local v17 = v(-3,-40,-7)*scale
-
-		local v20 = v(3,1,7)*scale
-		local v21 = v(-3,1,7)*scale
-		local v22 = v(7,1,3)*scale
-        local v24 = v(7,1,-3)*scale
-		local v26 = v(3,1,-7)*scale
-		local v27 = v(-3,1,-7)*scale
-
-		if lod > 1 then
-           	use_material('concrete')
-            texture('conc.png', v(.5,.5,0),v(.05,0,0)/scale,v(0,0,1)/scale)
-		end
-        xref_quad(v0,v2,v4,v6)
-		quad(v0,v6,v7,v1)
-
-		if lod > 1 then
-			texture('conc.png', v(.5,.5,0),v(.05,0,0)/scale,v(0,.05,0)/scale)
-		end
-		quad(v0,v1,v11,v10)
-		quad(v6,v16,v17,v7)
-
-		if lod > 1 then
-        	texture('conc.png', v(.5,.5,0),v(0,0,1)/scale,v(0,.05,0)/scale)
-		end
-        xref_quad(v0,v10,v12,v2)
-		xref_quad(v2,v12,v14,v4)
-		xref_quad(v4,v14,v16,v6)
-
-		if lod > 1 then
-			use_material('fce_glow')
-			texture('fence_glow.png', v(.5,.28,0),v(.1,0,0)/scale,v(0,1,0)/scale)
-		    quad(v20,v0,v1,v21)
-			quad(v26,v27,v7,v6)
-
-		    texture('fence_glow.png', v(.5,.28,0),v(0,0,.25)/scale,v(0,1,0)/scale)
-		    xref_quad(v0,v20,v22,v2)
-			xref_quad(v2,v22,v24,v4)
-			xref_quad(v4,v24,v26,v6)
-
-        	texture('fence_glow.png', v(.5,.28,0),v(.1,0,0)/scale,v(0,1,0)/scale)
-			quad(v20,v21,v1,v0)
-			quad(v26,v6,v7,v27)
-
-		    texture('fence_glow.png', v(.5,.28,0),v(0,0,.25)/scale,v(0,1,0)/scale)
-			xref_quad(v0,v2,v22,v20)
-			xref_quad(v2,v4,v24,v22)
-			xref_quad(v4,v6,v26,v24)
-		end
-end
-
 function combo_sub(lod,type,r,g,b,a,sr,sg,sb,sl)
 
         set_material('default',r,g,b,a,sr,sg,sb,sl)
@@ -205,7 +76,6 @@ define_model('combo_b', {
 	    set_material('fce_glow', 0,0,0,.9,0,0,0,0,1.5,2,.7)
         set_material('concrete',.6,.6,.5,1,.3,.3,.3,5)
     	combo_sub(lod,1,.73,.7,.83,1,1.26,1.4,1.66,30)
-    	bld_base_1(lod,1)
 	end
 })
 
@@ -221,7 +91,6 @@ define_model('combo_y', {
 	    set_material('fce_glow', 0,0,0,.9,0,0,0,0,1.5,2,.7)
         set_material('concrete',.6,.6,.5,1,.3,.3,.3,5)
     	combo_sub(lod,1,1,.9,.4,1,1.26,1.4,1.66,30)
-    	bld_base_1(lod,1)
 	end
 })
 
@@ -236,7 +105,6 @@ define_model('combo_g', {
 	    set_material('fce_glow', 0,0,0,.9,0,0,0,0,1.5,2,.7)
         set_material('concrete',.6,.6,.5,1,.3,.3,.3,5)
     	combo_sub(lod,1,.7,1,.7,1,1.26,1.4,1.66,30)
-    	bld_base_1(lod,1)
 	end
 })
 
@@ -265,7 +133,6 @@ define_model('combo_tri', {
             call_model('combo_b', v(14,2,-14),v(-1,0,0),v(0,1,0),1)
 			call_model('combo_y', v(14,2,0),v(1,0,0),v(0,1,0),1)
 			call_model('combo_g', v(0,2,-14),v(-1,0,0),v(0,1,0),1)
-			bld_base_1(lod,1)
 	end
 })
 
@@ -761,8 +628,6 @@ define_model('factory_3k_1', {
 	        -- advert end
 		end
 
-  		bld_base_1(lod,1.4,0)
-
 		if lod > 1 then
       texture('win0.png')
 	        use_material('win_on')
@@ -863,10 +728,6 @@ define_model('factory_3k_2', {
             -- advert end
 		end
 
-		bld_base_1(lod,1.4,0)
-		--use_material('concrete')
-		--call_model('bld_base_1', v(0,-.5,0),v(1,0,0),v(0,1,0),1.4)
-
 		if lod > 1 then
             --wins
 			texture('win0.png')
@@ -881,7 +742,6 @@ define_model('factory_3k_2', {
 			--call_model('f3k_thang', v(0,0,0),v(1,0,0),v(0,1,0),1)
 
 			--use_material('glow1')
-			--call_model('bld_base_fce',v(0,-.5,0),v(1,0,0),v(0,1,0),1.4)
 		end
 	end,
 })
@@ -927,9 +787,7 @@ define_model('factory_3k_3', {
 		call_model('f3k_body',v(0,0,0),v(1,0,0),v(0,1,0),1)
         call_model('f3k_top_1',v(0,0,0),v(1,0,0),v(0,1,0),1)
 
-		bld_base_1(lod,1.4,0)
 		--use_material('concrete')
-		--call_model('bld_base_1', v(0,-.5,0),v(1,0,0),v(0,1,0),1.4)
 
 		if lod > 1 then
             texture('win0.png')
@@ -942,7 +800,6 @@ define_model('factory_3k_3', {
             load_obj('f3k_win4_1.obj',Matrix.scale(v(1.011,1,.995)))
 
 			--use_material('glow1')
-			--call_model('bld_base_fce',v(0,-.5,0),v(1,0,0),v(0,1,0),1.4)
 		end
 	end
 })
@@ -986,9 +843,7 @@ define_model('factory_3k_4', {
 		call_model('f3k_body',v(0,0,0),v(1,0,0),v(0,1,0),1)
 		call_model('f3k_top_1',v(0,0,0),v(1,0,0),v(0,1,0),1)
 
-		bld_base_1(lod,1.4,0)
 		--use_material('concrete')
-        --call_model('bld_base_1', v(0,-.5,0),v(1,0,0),v(0,1,0),1.4)
 
 		if lod > 1 then
             texture('win0.png')
@@ -1000,8 +855,6 @@ define_model('factory_3k_4', {
 			load_obj('f3k_win_off.obj',Matrix.scale(v(1.011,1,.995)))
             load_obj('f3k_win4_1.obj',Matrix.scale(v(1.011,1,.995)))
 
-			--use_material('glow2')
-			--call_model('bld_base_fce',v(0,-.5,0),v(1,0,0),v(0,1,0),1.4)
 		end
 	end
 })
@@ -1067,7 +920,6 @@ define_model('green_bubble', {
 				sphere_slice(4*lod,2*lod,0,math.pi*.5, Matrix.translate(v(0,3,0)) * Matrix.scale(v(3,3,3)))
 			end
 
-			bld_base_2(lod,1.2,0)
 	end,
 	dynamic = function(lod)
 		if lod > 1 then
@@ -1157,9 +1009,6 @@ define_model('blue_bubble', {
 				sphere_slice(4*lod,2*lod,0,math.pi*.5, Matrix.translate(v(0,3,0)) * Matrix.scale(v(3,3,3)))
 			end
 
-			call_model('bld_base2', v(0,0,0),v(1,0,0),v(0,1,0),1.2)
-			use_material('glow1')
-			call_model('bld_base2_fce', v(0,.5,0),v(1,0,0),v(0,1,0),1.2)
 	end,
 	dynamic = function(lod)
 		if lod > 1 then
@@ -1182,7 +1031,6 @@ define_model('advert_0', {
 	static = function(lod)
 			set_material('glow1',0,0,0,.9,0,0,0,0,1,1.6,1.8)
 
-			call_model('bld_base2', v(0,0,0),v(1,0,0),v(0,1,0),1)
 
 
 			--if lod > 1 then
@@ -1201,7 +1049,6 @@ define_model('advert_0', {
 				call_model('ad_cola_1', v(0,12,0), v(-1,0,0),v(0,1,0),6)
 
 				use_material('glow1')
-				call_model('bld_base2_fce', v(0,.5,0),v(1,0,0),v(0,1,0),1)
 			--end
 	end,
 	dynamic = function(lod)
@@ -1288,7 +1135,6 @@ define_model('pink_obelisk', {
 			quad(v9,v11,v5,v3)
 
 
-			bld_base_2(lod,1.8,0)
 	end,
 
 	dynamic = function(lod)

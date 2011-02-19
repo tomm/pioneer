@@ -77,10 +77,6 @@ define_model('combo_1_2', {
 			call_model('combo_1', v(-14,2,0),v(1,0,0),v(0,1,0),1)
 			call_model('combo_2', v(0,2,0),v(1,0,0),v(0,1,0),1)
 			call_model('combo_3', v(-24,2,10),v(1,0,0),v(0,1,0),1)
-			zbias(1,v(-14,2.01,15),v(0,1,0))
-			use_material('concrete')
-			call_model('bld_base_1', v(-14,1.01,15),v(1,0,0),v(0,1,0),1)
-			zbias(0)
 	end
 })
 
