@@ -82,6 +82,7 @@ bool Shader::Compile(const char *shader_name, const char *additional_defines)
 
 	vs = glCreateShader(GL_VERTEX_SHADER);
 
+	shader_src.push_back("#version 120\n");
 	if (additional_defines) shader_src.push_back(additional_defines);
 	shader_src.push_back("#define ZHACK 1\n");
 	shader_src.push_back(s_lib_all);
@@ -100,6 +101,7 @@ bool Shader::Compile(const char *shader_name, const char *additional_defines)
 
 	if (pscode) {
 		shader_src.clear();
+		shader_src.push_back("#version 120\n");
 		if (additional_defines) shader_src.push_back(additional_defines);
 		shader_src.push_back("#define ZHACK 1\n");
 		shader_src.push_back(s_lib_all);
