@@ -81,6 +81,7 @@ noinst_HEADERS = \
 	NameGenerator.h \
 	Object.h \
 	ObjectViewerView.h \
+	ParticleGroup.h \
 	PersistSystemData.h \
 	Pi.h \
 	PiLuaClasses.h \
@@ -208,6 +209,7 @@ pioneer_SOURCES	= \
 	MyLuaMathTypes.cpp \
 	NameGenerator.cpp \
 	ObjectViewerView.cpp \
+	ParticleGroup.cpp \
 	Pi.cpp \
 	PiLuaClasses.cpp \
 	Planet.cpp \
