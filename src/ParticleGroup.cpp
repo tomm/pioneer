@@ -9,6 +9,7 @@
 SHADER_CLASS_BEGIN(ParticleShader)
 	SHADER_VERTEX_ATTRIB_FLOAT3(position)
 	SHADER_VERTEX_ATTRIB_FLOAT3(velocity)
+	SHADER_VERTEX_ATTRIB_FLOAT3(texTransform)
 	SHADER_VERTEX_ATTRIB_FLOAT(birthTime)
 	SHADER_UNIFORM_VEC3(acceleration)
 	SHADER_UNIFORM_VEC4(color)
@@ -44,6 +45,7 @@ void ParticleGroup::Init(TYPE type, int numParticles)
 				Pi::rng.Double(-50.0, 50.0),
 				Pi::rng.Double(-50.0, 50.0),
 				Pi::rng.Double(-50.0, 50.0));
+		data[i].texTransform = vector3f(0.25f * (float)Pi::rng.Int32(4), 0.0f, 0.0f);
 		data[i].birthTime = Pi::GetGameTime();
 	}
 	debug_age = Pi::GetGameTime();
@@ -63,10 +65,10 @@ void ParticleGroup::Render()
 	}
 	glDisable(GL_DEPTH_TEST);
 	glDisable(GL_LIGHTING);
-	glPointSize(5.0f);
+	glPointSize(10.0f);
 	glEnableClientState(GL_VERTEX_ARRAY);
 	
-	Texture *tex = TextureManager::GetTexture(PIONEER_DATA_DIR"/textures/smoke.png");
+	Texture *tex = TextureManager::GetTexture(PIONEER_DATA_DIR"/textures/particles.png");
 	tex->BindTexture();
 	glEnable(GL_TEXTURE_2D);
 	glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
@@ -74,7 +76,7 @@ void ParticleGroup::Render()
 	glTexParameterf (GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 	
 	glEnable(GL_BLEND);
-	glBlendFunc(GL_SRC_ALPHA, GL_ONE);	
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE);
 
 
 #warning FF fallback needed
@@ -90,14 +92,17 @@ void ParticleGroup::Render()
 	s_shader->set_acceleration(0.0f, -9.8f, 0.0f);
 	s_shader->set_position((float*)0, sizeof(Vertex));
 	s_shader->set_velocity((float*)(sizeof(float)*3), sizeof(Vertex));
-	s_shader->set_birthTime((float*)(sizeof(float)*6), sizeof(Vertex));
+	s_shader->set_texTransform((float*)(sizeof(float)*6), sizeof(Vertex));
+	s_shader->set_birthTime((float*)(sizeof(float)*9), sizeof(Vertex));
 
 	s_shader->enable_attrib_position();
 	s_shader->enable_attrib_velocity();
+	s_shader->enable_attrib_texTransform();
 	s_shader->enable_attrib_birthTime();
 	glDrawArrays(GL_POINTS, 0, m_numParticles);
 	s_shader->disable_attrib_position();
 	s_shader->disable_attrib_velocity();
+	s_shader->disable_attrib_texTransform();
 	s_shader->disable_attrib_birthTime();
 
 	Render::BindArrayBuffer(0);

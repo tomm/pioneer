@@ -11,6 +11,7 @@ private:
 	struct Vertex {
 		vector3f pos;
 		vector3f vel;
+		vector3f texTransform; // x,y is offset, z is rotation in radians
 		float birthTime;
 	};
 	TYPE m_type;
