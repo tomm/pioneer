@@ -1,7 +1,9 @@
 attribute vec3 position;
 attribute vec3 velocity;
-attribute vec3 texTransform;
+attribute vec2 texTransform;
+attribute float angVelocity;
 attribute float birthTime;
+attribute float pointSize;
 uniform float time;
 uniform vec3 acceleration;
 varying float age;
@@ -13,10 +15,10 @@ void main(void)
 {
 	age = time - birthTime;
 	{
-		float sin_theta = sin(4.0*age);
-		float cos_theta = cos(4.0*age);
+		float sin_theta = sin(age*angVelocity);
+		float cos_theta = cos(age*angVelocity);
 		texRot = mat2(cos_theta, -sin_theta, sin_theta, cos_theta);
-		texTrans = vec2(texTransform);
+		texTrans = texTransform;
 	}
 	vec3 pos = position + velocity*age + 0.5*acceleration*age*age;
 	// Uniform accel. s = s0 + u t + 1/2 a t squared
@@ -25,5 +27,6 @@ void main(void)
 #else
 	gl_Position = gl_ModelViewProjectionMatrix * pos;
 #endif
+	gl_PointSize = pointSize / gl_Position.z;
 }
 

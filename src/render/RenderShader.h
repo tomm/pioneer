@@ -19,6 +19,22 @@
 	void disable_attrib_##name() { \
 		glDisableVertexAttribArray(loc_##name); \
 	}
+#define SHADER_VERTEX_ATTRIB_FLOAT2(name) \
+	private: \
+	GLuint loc_##name; \
+	public: \
+	void set_##name(const float *vals, GLsizei stride) { \
+		if (!loc_##name) { \
+			loc_##name = glGetAttribLocation(m_program, #name); \
+		} \
+		glVertexAttribPointer(loc_##name, 2, GL_FLOAT, GL_FALSE, stride, vals); \
+	} \
+	void enable_attrib_##name() { \
+		glEnableVertexAttribArray(loc_##name); \
+	} \
+	void disable_attrib_##name() { \
+		glDisableVertexAttribArray(loc_##name); \
+	}
 #define SHADER_VERTEX_ATTRIB_FLOAT(name) \
 	private: \
 	GLuint loc_##name; \

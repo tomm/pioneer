@@ -9,8 +9,10 @@
 SHADER_CLASS_BEGIN(ParticleShader)
 	SHADER_VERTEX_ATTRIB_FLOAT3(position)
 	SHADER_VERTEX_ATTRIB_FLOAT3(velocity)
-	SHADER_VERTEX_ATTRIB_FLOAT3(texTransform)
+	SHADER_VERTEX_ATTRIB_FLOAT2(texTransform)
+	SHADER_VERTEX_ATTRIB_FLOAT(angVelocity)
 	SHADER_VERTEX_ATTRIB_FLOAT(birthTime)
+	SHADER_VERTEX_ATTRIB_FLOAT(pointSize)
 	SHADER_UNIFORM_VEC3(acceleration)
 	SHADER_UNIFORM_VEC4(color)
 	SHADER_UNIFORM_FLOAT(time)
@@ -19,7 +21,7 @@ SHADER_CLASS_END()
 	
 static ParticleShader *s_shader;
 
-#define DEBUG_EFFECT_DURATION	2.0
+#define DEBUG_EFFECT_DURATION	4.0
 double debug_age = 0.0;
 
 ParticleGroup::ParticleGroup(TYPE type, int numParticles)
@@ -42,11 +44,14 @@ void ParticleGroup::Init(TYPE type, int numParticles)
 	for (int i=0; i<numParticles; i++) {
 		data[i].pos = vector3f(0.0f);
 		data[i].vel = vector3f(
-				Pi::rng.Double(-50.0, 50.0),
-				Pi::rng.Double(-50.0, 50.0),
-				Pi::rng.Double(-50.0, 50.0));
-		data[i].texTransform = vector3f(0.25f * (float)Pi::rng.Int32(4), 0.0f, 0.0f);
+				Pi::rng.Double(-25.0, 25.0),
+				Pi::rng.Double(-25.0, 25.0),
+				Pi::rng.Double(-25.0, 25.0));
+		data[i].texTransform[0] = 0.25f * (float)Pi::rng.Int32(4);
+		data[i].texTransform[1] = 0.0f;
+		data[i].angVelocity = Pi::rng.Double(-10.0, 10.0);
 		data[i].birthTime = Pi::GetGameTime();
+		data[i].pointSize = Pi::rng.Double(10.0, 5000.0);
 	}
 	debug_age = Pi::GetGameTime();
 
@@ -63,7 +68,7 @@ void ParticleGroup::Render()
 	if (Pi::GetGameTime() - debug_age > DEBUG_EFFECT_DURATION) {
 		Init(m_type, m_numParticles);
 	}
-	glDisable(GL_DEPTH_TEST);
+	glDepthMask(GL_FALSE);
 	glDisable(GL_LIGHTING);
 	glPointSize(10.0f);
 	glEnableClientState(GL_VERTEX_ARRAY);
@@ -81,6 +86,7 @@ void ParticleGroup::Render()
 
 #warning FF fallback needed
 	glEnable(GL_POINT_SPRITE_ARB);
+	glEnable(GL_VERTEX_PROGRAM_POINT_SIZE_ARB);
 
 	Render::State::UseProgram(s_shader);
 	Render::BindArrayBuffer(m_vbo);
@@ -93,23 +99,30 @@ void ParticleGroup::Render()
 	s_shader->set_position((float*)0, sizeof(Vertex));
 	s_shader->set_velocity((float*)(sizeof(float)*3), sizeof(Vertex));
 	s_shader->set_texTransform((float*)(sizeof(float)*6), sizeof(Vertex));
+	s_shader->set_angVelocity((float*)(sizeof(float)*8), sizeof(Vertex));
 	s_shader->set_birthTime((float*)(sizeof(float)*9), sizeof(Vertex));
+	s_shader->set_pointSize((float*)(sizeof(float)*10), sizeof(Vertex));
 
 	s_shader->enable_attrib_position();
 	s_shader->enable_attrib_velocity();
 	s_shader->enable_attrib_texTransform();
+	s_shader->enable_attrib_angVelocity();
 	s_shader->enable_attrib_birthTime();
+	s_shader->enable_attrib_pointSize();
 	glDrawArrays(GL_POINTS, 0, m_numParticles);
 	s_shader->disable_attrib_position();
 	s_shader->disable_attrib_velocity();
 	s_shader->disable_attrib_texTransform();
+	s_shader->disable_attrib_angVelocity();
 	s_shader->disable_attrib_birthTime();
+	s_shader->disable_attrib_pointSize();
 
 	Render::BindArrayBuffer(0);
 	Render::State::UseProgram(0);
 	
+	glDepthMask(GL_TRUE);
+	glDisable(GL_VERTEX_PROGRAM_POINT_SIZE_ARB);
 	glDisable(GL_POINT_SPRITE_ARB);
-	glEnable(GL_DEPTH_TEST);
 	glEnable(GL_LIGHTING);
 	glDisableClientState(GL_VERTEX_ARRAY);
 }

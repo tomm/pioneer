@@ -11,8 +11,10 @@ private:
 	struct Vertex {
 		vector3f pos;
 		vector3f vel;
-		vector3f texTransform; // x,y is offset, z is rotation in radians
+		float texTransform[2];
+		float angVelocity;
 		float birthTime;
+		float pointSize;
 	};
 	TYPE m_type;
 	int m_numParticles;
