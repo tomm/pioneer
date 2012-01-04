@@ -14,6 +14,7 @@ private:
 		float texTransform[2];
 		float angVelocity;
 		float birthTime;
+		float duration;
 		float pointSize;
 	};
 	TYPE m_type;
