@@ -2,8 +2,6 @@
 #include "ParticleGroup.h"
 #include "render/Render.h"
 #include "TextureManager.h"
-
-#warning can remove when debug code gone
 #include "Pi.h"
 
 SHADER_CLASS_BEGIN(ParticleShader)
@@ -22,54 +20,85 @@ SHADER_CLASS_END()
 	
 static ParticleShader *s_shader;
 
-#define DEBUG_EFFECT_DURATION	5.0
-double debug_age = 0.0;
-
 ParticleGroup::ParticleGroup(TYPE type, int numParticles)
 {
 	if (!s_shader) {
 		s_shader = new ParticleShader("particle", "");
 	}
 	m_vbo = 0;
+	m_data = 0;
 	Init(type, numParticles);
+}
+
+ParticleGroup::~ParticleGroup()
+{
+	if (m_vbo) glDeleteBuffersARB(1, &m_vbo);
+	if (m_data) delete [] m_data;
+}
+
+void ParticleGroup::_TestAddSomeParticles(int num)
+{
+	int min = m_numParticles;
+	int max = 0;
+	float now = Pi::GetGameTime();
+	for (int i=0; num && (i<m_numParticles); i++) {
+		if (m_data[i].birthTime + m_data[i].duration < now) {
+			num--;
+			min = std::min(min, i);
+			max = std::max(max, i);
+
+			m_data[i].pos = vector3f(0.0f);
+			m_data[i].vel = vector3f(
+					Pi::rng.Double(-25.0, 25.0),
+					Pi::rng.Double(-25.0, 25.0),
+					Pi::rng.Double(-25.0, 25.0));
+			m_data[i].texTransform[0] = 0.25f * (float)Pi::rng.Int32(4);
+			m_data[i].texTransform[1] = 0.0f;
+			m_data[i].angVelocity = Pi::rng.Double(-10.0, 10.0);
+			m_data[i].birthTime = Pi::GetGameTime();
+			m_data[i].duration = Pi::rng.Double(1.0, 5.0);
+			m_data[i].pointSize = Pi::rng.Double(100.0, 5000.0);
+		}
+	}
+	if (max >= min) {
+		//printf("%d KiB update\n", (max-min)*sizeof(Vertex)/1024);
+		Render::BindArrayBuffer(m_vbo);
+		glBufferSubDataARB(GL_ARRAY_BUFFER, min * sizeof(Vertex), (1+max-min) * sizeof(Vertex), &m_data[min]);
+		Render::BindArrayBuffer(0);
+	}
 }
 
 void ParticleGroup::Init(TYPE type, int numParticles)
 {
 	m_type = type;
 	m_numParticles = numParticles;
+	if (m_data) delete [] m_data;
 	if (m_vbo) glDeleteBuffersARB(1, &m_vbo);
 
-	Vertex *data = new Vertex[numParticles];
+	m_data = new Vertex[numParticles];
 
 	for (int i=0; i<numParticles; i++) {
-		data[i].pos = vector3f(0.0f);
-		data[i].vel = vector3f(
-				Pi::rng.Double(-25.0, 25.0),
-				Pi::rng.Double(-25.0, 25.0),
-				Pi::rng.Double(-25.0, 25.0));
-		data[i].texTransform[0] = 0.25f * (float)Pi::rng.Int32(4);
-		data[i].texTransform[1] = 0.0f;
-		data[i].angVelocity = Pi::rng.Double(-10.0, 10.0);
-		data[i].birthTime = Pi::GetGameTime();
-		data[i].duration = Pi::rng.Double(0.1, 5.0);
-		data[i].pointSize = Pi::rng.Double(10.0, 5000.0);
+		m_data[i].birthTime = 0;
+		m_data[i].duration = 0;
 	}
-	debug_age = Pi::GetGameTime();
 
 	glGenBuffersARB(1, &m_vbo);
 	Render::BindArrayBuffer(m_vbo);
-	glBufferDataARB(GL_ARRAY_BUFFER, sizeof(Vertex)*numParticles, data, GL_STATIC_DRAW);
+	glBufferDataARB(GL_ARRAY_BUFFER, sizeof(Vertex)*numParticles, m_data, GL_DYNAMIC_DRAW);
 	Render::BindArrayBuffer(0);
-
-	delete [] data;
 }
 
 void ParticleGroup::Render()
 {
-	if (Pi::GetGameTime() - debug_age > DEBUG_EFFECT_DURATION) {
-		Init(m_type, m_numParticles);
+	int maxActive = -1;
+	const float now = (float)Pi::GetGameTime();
+	for (int i=m_numParticles-1; i>=0; i--) {
+		if (m_data[i].birthTime + m_data[i].duration > now) {
+			maxActive = i;
+			break;
+		}
 	}
+	if (maxActive == -1) return;
 	glDepthMask(GL_FALSE);
 	glDisable(GL_LIGHTING);
 	glPointSize(10.0f);
@@ -96,7 +125,7 @@ void ParticleGroup::Render()
 	// offsets in array buffer
 	s_shader->set_color(1.0f, 1.0f, 0.0f, 1.0f);
 	s_shader->set_texture(0);
-	s_shader->set_time((float)Pi::GetGameTime());
+	s_shader->set_time(now);
 	s_shader->set_acceleration(0.0f, -9.8f, 0.0f);
 	s_shader->set_position((float*)0, sizeof(Vertex));
 	s_shader->set_velocity((float*)(sizeof(float)*3), sizeof(Vertex));
@@ -113,7 +142,7 @@ void ParticleGroup::Render()
 	s_shader->enable_attrib_birthTime();
 	s_shader->enable_attrib_duration();
 	s_shader->enable_attrib_pointSize();
-	glDrawArrays(GL_POINTS, 0, m_numParticles);
+	glDrawArrays(GL_POINTS, 0, maxActive+1);
 	s_shader->disable_attrib_position();
 	s_shader->disable_attrib_velocity();
 	s_shader->disable_attrib_texTransform();
