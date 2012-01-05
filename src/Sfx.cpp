@@ -1,33 +1,49 @@
 #include "libs.h"
 #include "Pi.h"
+#include "Player.h"
 #include "Sfx.h"
 #include "Frame.h"
 #include "StarSystem.h"
 #include "Space.h"
 #include "TextureManager.h"
 #include "render/Render.h"
+#include "ParticleGroup.h"
 
-#define MAX_SFX_PER_FRAME 1024
+#define MAX_SFX_PER_FRAME 4
+#define MAX_PARTICLES_PER_GROUP 65536
+// Distance from the player (in meters) at which the ParticleGroup is expired
+// This gives ~1cm precision (particle positions are 32-bit floats in VBO)
+// This is necessary to avoid jitter that positions relative to frame origin would cause
+// Once a ParticleGroup is expired (m_dead = true), it is still rendered until all particles
+// have 'died' of old age, then it is freed.
+// See Sfx::GetActiveParticleGroup()
+#define EXPIRY_DISTANCE_FROM_PLAYER 1e3 //  change to 1e5!!!
 
 Sfx::Sfx()
 {
-	m_type = TYPE_NONE;
+	m_particles = 0;
+}
+
+Sfx::~Sfx()
+{
+	if (m_particles) delete m_particles;
 }
 
 void Sfx::Save(Serializer::Writer &wr)
 {
 	wr.Vector3d(m_pos);
+	wr.Vector3d(m_oldPos);
 	wr.Vector3d(m_vel);
-	wr.Float(m_age);
-	wr.Int32(m_type);
+	wr.Bool(m_dead);
 }
 
 void Sfx::Load(Serializer::Reader &rd)
 {
 	m_pos = rd.Vector3d();
+	m_oldPos = rd.Vector3d();
 	m_vel = rd.Vector3d();
-	m_age = rd.Float();
-	m_type = static_cast<Sfx::TYPE>(rd.Int32());
+	m_dead = rd.Bool();
+#warning FINISH THIS!
 }
 
 void Sfx::Serialize(Serializer::Writer &wr, const Frame *f)
@@ -36,13 +52,13 @@ void Sfx::Serialize(Serializer::Writer &wr, const Frame *f)
 	int numActive = 0;
 	if (f->m_sfx) {
 		for (int i=0; i<MAX_SFX_PER_FRAME; i++) {
-			if (f->m_sfx[i].m_type != TYPE_NONE) numActive++;
+			if (f->m_sfx[i].m_particles) numActive++;
 		}
 	}
 	wr.Int32(numActive);
 
 	if (numActive) for (int i=0; i<MAX_SFX_PER_FRAME; i++) {
-		if (f->m_sfx[i].m_type != TYPE_NONE) {
+		if (f->m_sfx[i].m_particles) {
 			f->m_sfx[i].Save(wr);
 		}
 	}
@@ -59,33 +75,40 @@ void Sfx::Unserialize(Serializer::Reader &rd, Frame *f)
 	}
 }
 
-void Sfx::SetPosition(vector3d p)
-{
-	m_pos = p;
-}
-
 void Sfx::TimeStepUpdate(const float timeStep)
 {
-	m_age += timeStep;
+	m_oldPos = m_pos;
 	m_pos += m_vel * double(timeStep);
 
-	switch (m_type) {
-		case TYPE_EXPLOSION:
-			if (m_age > 0.2) m_type = TYPE_NONE;
-			break;
-		case TYPE_DAMAGE:
-			if (m_age > 2.0) m_type = TYPE_NONE;
-			break;
-		case TYPE_NONE: break;
+	if ((m_pos - Pi::player->GetPosition()).Length() > EXPIRY_DISTANCE_FROM_PLAYER) {
+		m_dead = true;
+
+		if (!m_particles->HasActiveParticles()) {
+			printf("Expired dead group %p\n", this);
+			delete m_particles;
+			m_particles = 0;
+		}
 	}
 }
 
 void Sfx::Render(const matrix4x4d &ftransform)
 {
+	if (m_particles) {
+		const double alpha = Pi::GetGameTickAlpha();
+		const vector3d fpos = ftransform * (m_pos*alpha + m_oldPos*(1.0-alpha));
+		matrix4x4d tran = ftransform;
+		tran[12] = fpos.x;
+		tran[13] = fpos.y;
+		tran[14] = fpos.z;
+		
+		glPushMatrix();
+		glLoadMatrixd(&tran[0]);
+		m_particles->Render();
+		glPopMatrix();
+	}
+/*
 	Texture *smokeTex = 0;
 	float col[4];
-
-	vector3d fpos = ftransform * GetPosition();
 
 	switch (m_type) {
 		case TYPE_NONE: break;
@@ -114,42 +137,80 @@ void Sfx::Render(const matrix4x4d &ftransform)
 			smokeTex->BindTexture();
 			Render::PutPointSprites(1, &pos, 20.0f, col);
 			break;
-	}
+	}*/
 }
 
-Sfx *Sfx::AllocSfxInFrame(Frame *f)
+Sfx *Sfx::GetActiveParticleGroup(Frame *f)
 {
+	Sfx *newPg = 0;
 	if (!f->m_sfx) {
 		f->m_sfx = new Sfx[MAX_SFX_PER_FRAME];
 	}
 
+	/* Try to find active particle group */
 	for (int i=0; i<MAX_SFX_PER_FRAME; i++) {
-		if (f->m_sfx[i].m_type == TYPE_NONE) {
+		if (f->m_sfx[i].m_particles && !f->m_sfx[i].m_dead) {
 			return &f->m_sfx[i];
 		}
 	}
-	return 0;
+
+	/* failing that, create one */
+	for (int i=0; i<MAX_SFX_PER_FRAME; i++) {
+		if (!f->m_sfx[i].m_particles) {
+			newPg = &f->m_sfx[i];
+			newPg->m_particles = new ParticleGroup(MAX_PARTICLES_PER_GROUP);
+			printf("Creating new active group %d\n", i);
+			break;
+		}
+	}
+
+	/* failing that, there must be a lot of dead particle groups
+	   taking too long to expire. Nuke one */
+	if (!newPg) {
+		newPg = &f->m_sfx[0];
+		delete newPg->m_particles;
+		newPg->m_particles = new ParticleGroup(MAX_PARTICLES_PER_GROUP);
+		printf("Replacing dead group group %d\n", 0);
+	}
+
+	/* Put new particle groups near the player, travelling at player velocity */
+	newPg->m_pos = Pi::player->GetPosition();
+	newPg->m_vel = Pi::player->GetVelocity();
+	newPg->m_oldPos = newPg->m_pos;
+	newPg->m_dead = false;
+
+	return newPg;
+}
+
+static void myCallback(ParticleGroup::Vertex &v, int num, void *sfx)
+{
+	v.pos = vector3f(Pi::player->GetPosition() - ((Sfx*)sfx)->GetPosition());
+	v.vel = vector3f(Pi::player->GetVelocity() - ((Sfx*)sfx)->GetVelocity());
+	v.vel += vector3f(
+			Pi::rng.Double(-10.0,10.0),
+			Pi::rng.Double(-10.0,10.0),
+			Pi::rng.Double(-10.0,10.0));
+	v.texTransform[0] = 0.25f * (float)Pi::rng.Int32(4);
+	v.texTransform[1] = 0.0f;
+	v.angVelocity = Pi::rng.Double(-10.0, 10.0);
+	v.birthTime = Pi::GetGameTime();
+	v.duration = Pi::rng.Double(1.0, 5.0);
+	v.pointSize = Pi::rng.Double(100.0, 5000.0);
 }
 
 void Sfx::Add(const Body *b, TYPE t)
 {
-	Sfx *sfx = AllocSfxInFrame(b->GetFrame());
-	if (!sfx) return;
+	Sfx *sfx = GetActiveParticleGroup(b->GetFrame());
 
-	sfx->m_type = t;
-	sfx->m_age = 0;
-	sfx->SetPosition(b->GetPosition());
-	sfx->m_vel = b->GetVelocity() + 200.0*vector3d(
-			Pi::rng.Double()-0.5,
-			Pi::rng.Double()-0.5,
-			Pi::rng.Double()-0.5);
+	sfx->m_particles->AddParticles(myCallback, 50, sfx);
+	//		vector3f(b->GetPosition() - sfx->m_pos), 1);
 }
 
 void Sfx::TimeStepAll(const float timeStep, Frame *f)
 {
 	if (f->m_sfx) {
 		for (int i=0; i<MAX_SFX_PER_FRAME; i++) {
-			if (f->m_sfx[i].m_type != TYPE_NONE) {
+			if (f->m_sfx[i].m_particles) {
 				f->m_sfx[i].TimeStepUpdate(timeStep);
 			}
 		}
@@ -168,7 +229,7 @@ void Sfx::RenderAll(const Frame *f, const Frame *camFrame)
 		Frame::GetFrameTransform(f, camFrame, ftran);
 
 		for (int i=0; i<MAX_SFX_PER_FRAME; i++) {
-			if (f->m_sfx[i].m_type != TYPE_NONE) {
+			if (f->m_sfx[i].m_particles) {
 				f->m_sfx[i].Render(ftran);
 			}
 		}

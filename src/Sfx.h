@@ -5,6 +5,7 @@
 #include "Serializer.h"
 
 class Frame;
+class ParticleGroup;
 
 class Sfx {
 public:
@@ -17,10 +18,11 @@ public:
 	static void Unserialize(Serializer::Reader &rd, Frame *f);
 
 	Sfx();
-	void SetPosition(vector3d p);
-	vector3d GetPosition() const { return m_pos; }
+	virtual ~Sfx();
+	const vector3d &GetPosition() { return m_pos; }
+	const vector3d &GetVelocity() { return m_vel; }
 private:
-	static Sfx *AllocSfxInFrame(Frame *f);
+	static Sfx *GetActiveParticleGroup(Frame *f);
 
 	void Render(const matrix4x4d &transform);
 	void TimeStepUpdate(const float timeStep);
@@ -28,9 +30,10 @@ private:
 	void Load(Serializer::Reader &rd);
 
 	vector3d m_pos;
+	vector3d m_oldPos;
 	vector3d m_vel;
-	float m_age;
-	enum TYPE m_type;
+	bool m_dead; // only is finally freed when all particles in group expire
+	ParticleGroup *m_particles;
 };
 
 #endif /* _SFX_H */

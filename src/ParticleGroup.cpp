@@ -20,14 +20,15 @@ SHADER_CLASS_END()
 	
 static ParticleShader *s_shader;
 
-ParticleGroup::ParticleGroup(TYPE type, int numParticles)
+ParticleGroup::ParticleGroup(int numParticles)
 {
 	if (!s_shader) {
 		s_shader = new ParticleShader("particle", "");
 	}
 	m_vbo = 0;
 	m_data = 0;
-	Init(type, numParticles);
+	m_hasActiveParticles = true;
+	Init(numParticles);
 }
 
 ParticleGroup::~ParticleGroup()
@@ -36,28 +37,17 @@ ParticleGroup::~ParticleGroup()
 	if (m_data) delete [] m_data;
 }
 
-void ParticleGroup::_TestAddSomeParticles(int num)
+void ParticleGroup::AddParticles(void (*vertexCallback)(Vertex &, int, void*), int num, void *data)
 {
 	int min = m_numParticles;
 	int max = 0;
 	float now = Pi::GetGameTime();
 	for (int i=0; num && (i<m_numParticles); i++) {
 		if (m_data[i].birthTime + m_data[i].duration < now) {
-			num--;
 			min = std::min(min, i);
 			max = std::max(max, i);
 
-			m_data[i].pos = vector3f(0.0f);
-			m_data[i].vel = vector3f(
-					Pi::rng.Double(-25.0, 25.0),
-					Pi::rng.Double(-25.0, 25.0),
-					Pi::rng.Double(-25.0, 25.0));
-			m_data[i].texTransform[0] = 0.25f * (float)Pi::rng.Int32(4);
-			m_data[i].texTransform[1] = 0.0f;
-			m_data[i].angVelocity = Pi::rng.Double(-10.0, 10.0);
-			m_data[i].birthTime = Pi::GetGameTime();
-			m_data[i].duration = Pi::rng.Double(1.0, 5.0);
-			m_data[i].pointSize = Pi::rng.Double(100.0, 5000.0);
+			vertexCallback(m_data[i], num--, data);
 		}
 	}
 	if (max >= min) {
@@ -68,9 +58,8 @@ void ParticleGroup::_TestAddSomeParticles(int num)
 	}
 }
 
-void ParticleGroup::Init(TYPE type, int numParticles)
+void ParticleGroup::Init(int numParticles)
 {
-	m_type = type;
 	m_numParticles = numParticles;
 	if (m_data) delete [] m_data;
 	if (m_vbo) glDeleteBuffersARB(1, &m_vbo);
@@ -98,7 +87,8 @@ void ParticleGroup::Render()
 			break;
 		}
 	}
-	if (maxActive == -1) return;
+	m_hasActiveParticles = (maxActive != -1);
+	if (!m_hasActiveParticles) return;
 	glDepthMask(GL_FALSE);
 	glDisable(GL_LIGHTING);
 	glPointSize(10.0f);

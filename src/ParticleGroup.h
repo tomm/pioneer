@@ -3,13 +3,12 @@
 
 class ParticleGroup {
 public:
-	enum TYPE { TYPE_SMOKE };
-	ParticleGroup(TYPE type, int numParticles);
+	ParticleGroup(int numParticles);
 	virtual ~ParticleGroup();
-	void Init(TYPE type, int numParticles);
+	void Init(int numParticles);
 	void Render();
-	void _TestAddSomeParticles(int num);
-private:
+	bool HasActiveParticles() const { return m_hasActiveParticles; }
+	
 	struct Vertex {
 		vector3f pos;
 		vector3f vel;
@@ -19,8 +18,11 @@ private:
 		float duration;
 		float pointSize;
 	};
-	TYPE m_type;
+	
+	void AddParticles(void (*vertexCallback)(Vertex &, int, void*), int num, void *data);
+private:
 	int m_numParticles;
+	bool m_hasActiveParticles;
 	Vertex *m_data;
 	GLuint m_vbo;
 };
