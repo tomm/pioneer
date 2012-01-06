@@ -11,26 +11,70 @@
 #include "Lang.h"
 #include "StringF.h"
 #include "ShipCpanel.h"
+#include "Game.h"
 
 #define INNER_RADIUS (Sector::SIZE*1.5f)
 #define OUTER_RADIUS (Sector::SIZE*3.0f)
-		
-SectorView::SectorView() :
-	m_selectionFollowsMovement(true),
-	m_infoBoxVisible(true)
-{
-	SetTransparency(true);
 
+SectorView::SectorView()
+{
+	InitDefaults();
+	
+	m_rotX = m_rotXMovingTo = m_rotXDefault;
+	m_rotZ = m_rotZMovingTo = m_rotZDefault;
+	m_zoom = m_zoomMovingTo = m_zoomDefault;
+
+	m_inSystem = true;
+
+	m_current = Pi::game->GetSpace()->GetStarSystem()->GetPath();
+	assert(!m_current.IsSectorPath());
+	m_current = m_current.SystemOnly();
+
+	m_selected = m_hyperspaceTarget = m_current;
+
+	GotoSystem(m_current);
+	m_pos = m_posMovingTo;
+
+	m_matchTargetToSelection = true;
+	m_selectionFollowsMovement = true;
+	m_infoBoxVisible = true;
+
+	InitObject();
+}
+
+SectorView::SectorView(Serializer::Reader &rd)
+{
+	InitDefaults();
+
+	m_pos.x = m_posMovingTo.x = rd.Float();
+	m_pos.y = m_posMovingTo.y = rd.Float();
+	m_pos.z = m_posMovingTo.z = rd.Float();
+	m_rotX = m_rotXMovingTo = rd.Float();
+	m_rotZ = m_rotZMovingTo = rd.Float();
+	m_zoom = m_zoomMovingTo = rd.Float();
+	m_inSystem = rd.Bool();
+	m_current = SystemPath::Unserialize(rd);
+	m_selected = SystemPath::Unserialize(rd);
+	m_hyperspaceTarget = SystemPath::Unserialize(rd);
+	m_matchTargetToSelection = rd.Bool();
+	m_selectionFollowsMovement = rd.Bool();
+	m_infoBoxVisible = rd.Bool();
+
+	InitObject();
+}
+
+void SectorView::InitDefaults()
+{
 	m_rotXDefault = Pi::config.Float("SectorViewXRotation");
 	m_rotZDefault = Pi::config.Float("SectorViewZRotation");
 	m_zoomDefault = Pi::config.Float("SectorViewZoom");
 	m_rotXDefault = Clamp(m_rotXDefault, -170.0f, -10.0f);
 	m_zoomDefault = Clamp(m_zoomDefault, 0.1f, 5.0f);
-
-	m_pos = m_posMovingTo = vector3f(0.0f);
-	m_rotX = m_rotXMovingTo = m_rotXDefault;
-	m_rotZ = m_rotZMovingTo = m_rotZDefault;
-	m_zoom = m_zoomMovingTo = m_zoomDefault;
+}
+		
+void SectorView::InitObject()
+{
+	SetTransparency(true);
 
 	Gui::Screen::PushFont("OverlayFont");
 	m_clickableLabels = new Gui::LabelSet();
@@ -75,11 +119,15 @@ SectorView::SectorView() :
 	hbox->PackEnd(b);
 	hbox->PackEnd((new Gui::Label(Lang::CURRENT_SYSTEM))->Color(1.0f, 1.0f, 1.0f));
 	systemBox->PackEnd(hbox);
+	hbox = new Gui::HBox();
+	hbox->SetSpacing(5.0f);
 	m_currentSystemLabels.systemName = (new Gui::Label(""))->Color(1.0f, 1.0f, 0.0f);
-	m_currentSystemLabels.distance = 0;
+	m_currentSystemLabels.distance = (new Gui::Label(""))->Color(1.0f, 0.0f, 0.0f);
+	hbox->PackEnd(m_currentSystemLabels.systemName);
+	hbox->PackEnd(m_currentSystemLabels.distance);
+	systemBox->PackEnd(hbox);
 	m_currentSystemLabels.starType = (new Gui::Label(""))->Color(1.0f, 0.0f, 1.0f);
 	m_currentSystemLabels.shortDesc = (new Gui::Label(""))->Color(1.0f, 0.0f, 1.0f);
-	systemBox->PackEnd(m_currentSystemLabels.systemName);
 	systemBox->PackEnd(m_currentSystemLabels.starType);
 	systemBox->PackEnd(m_currentSystemLabels.shortDesc);
 	m_infoBox->PackEnd(systemBox);
@@ -131,7 +179,11 @@ SectorView::SectorView() :
 	m_onMouseButtonDown = 
 		Pi::onMouseButtonDown.connect(sigc::mem_fun(this, &SectorView::MouseButtonDown));
 	
-	FloatHyperspaceTarget();
+	UpdateSystemLabels(m_currentSystemLabels, m_current);
+	UpdateSystemLabels(m_selectedSystemLabels, m_selected);
+	UpdateSystemLabels(m_targetSystemLabels, m_hyperspaceTarget);
+
+	UpdateHyperspaceLockLabel();
 }
 
 SectorView::~SectorView()
@@ -141,55 +193,21 @@ SectorView::~SectorView()
 	if (m_onKeyPressConnection.connected()) m_onKeyPressConnection.disconnect();
 }
 
-void SectorView::NewGameInit()
-{
-	printf("SectorView::NewGameInit()\n");
-	assert(Pi::currentSystem);
-	m_current = Pi::currentSystem->GetPath();
-	assert(!m_current.IsSectorPath());
-	m_current = m_current.SystemOnly();
-
-	WarpToSystem(m_current);
-	OnClickSystem(m_current);
-	SetSelectedSystem(m_current);
-}
-
 void SectorView::Save(Serializer::Writer &wr)
 {
-	wr.Float(m_zoom);
-	m_current.Serialize(wr);
-	m_selected.Serialize(wr);
-	m_hyperspaceTarget.Serialize(wr);
 	wr.Float(m_pos.x);
 	wr.Float(m_pos.y);
 	wr.Float(m_pos.z);
 	wr.Float(m_rotX);
 	wr.Float(m_rotZ);
+	wr.Float(m_zoom);
+	wr.Bool(m_inSystem);
+	m_current.Serialize(wr);
+	m_selected.Serialize(wr);
+	m_hyperspaceTarget.Serialize(wr);
 	wr.Bool(m_matchTargetToSelection);
 	wr.Bool(m_selectionFollowsMovement);
 	wr.Bool(m_infoBoxVisible);
-}
-
-void SectorView::Load(Serializer::Reader &rd)
-{
-	m_zoom = m_zoomMovingTo = rd.Float();
-	m_current = SystemPath::Unserialize(rd);
-	m_selected = SystemPath::Unserialize(rd);
-	m_hyperspaceTarget = SystemPath::Unserialize(rd);
-	m_pos.x = m_posMovingTo.x = rd.Float();
-	m_pos.y = m_posMovingTo.y = rd.Float();
-	m_pos.z = m_posMovingTo.z = rd.Float();
-	m_rotX = m_rotXMovingTo = rd.Float();
-	m_rotZ = m_rotZMovingTo = rd.Float();
-	m_matchTargetToSelection = rd.Bool();
-	m_selectionFollowsMovement = rd.Bool();
-	m_infoBoxVisible = rd.Bool();
-
-	UpdateSystemLabels(m_currentSystemLabels, m_current);
-	UpdateSystemLabels(m_selectedSystemLabels, m_selected);
-	UpdateSystemLabels(m_targetSystemLabels, m_hyperspaceTarget);
-
-	m_hyperspaceLockLabel->SetText(stringf("[%0]", std::string(m_matchTargetToSelection ? Lang::FOLLOWING_SELECTION : Lang::LOCKED)));
 }
 
 void SectorView::OnSearchBoxKeyPress(const SDL_keysym *keysym)
@@ -285,8 +303,13 @@ void SectorView::Draw3D()
 		formatarg("y", int(floorf(m_pos.y))),
 		formatarg("z", int(floorf(m_pos.z)))));
 
-	vector3f dv = vector3f(floorf(m_pos.x)-m_current.sectorX, floorf(m_pos.y)-m_current.sectorY, floorf(m_pos.z)-m_current.sectorZ) * Sector::SIZE;
-	m_distanceLabel->SetText(stringf(Lang::DISTANCE_LY, formatarg("distance", dv.Length())));
+	if (m_inSystem) {
+		vector3f dv = vector3f(floorf(m_pos.x)-m_current.sectorX, floorf(m_pos.y)-m_current.sectorY, floorf(m_pos.z)-m_current.sectorZ) * Sector::SIZE;
+		m_distanceLabel->SetText(stringf(Lang::DISTANCE_LY, formatarg("distance", dv.Length())));
+	}
+	else {
+		m_distanceLabel->SetText("");
+	}
 
 	glDisable(GL_LIGHTING);
 
@@ -302,18 +325,14 @@ void SectorView::Draw3D()
 	glHint(GL_LINE_SMOOTH_HINT, GL_NICEST);
 	glEnable(GL_LINE_SMOOTH);
 
-	Sector* playerSec = GetCached(m_current.sectorX, m_current.sectorY, m_current.sectorZ);
-	vector3f playerPos
-		= Sector::SIZE * vector3f(float(m_current.sectorX), float(m_current.sectorY), float(m_current.sectorZ))
-		+ playerSec->m_systems[m_current.systemIndex].p;
-	
+	vector3d playerPos;
 
 	for (int sx = -DRAW_RAD; sx <= DRAW_RAD; sx++) {
 		for (int sy = -DRAW_RAD; sy <= DRAW_RAD; sy++) {
 			for (int sz = -DRAW_RAD; sz <= DRAW_RAD; sz++) {
 				glPushMatrix();
 				glTranslatef(Sector::SIZE*sx, Sector::SIZE*sy, Sector::SIZE*sz);
-				DrawSector(int(floorf(m_pos.x))+sx, int(floorf(m_pos.y))+sy, int(floorf(m_pos.z))+sz, playerPos);
+				DrawSector(int(floorf(m_pos.x))+sx, int(floorf(m_pos.y))+sy, int(floorf(m_pos.z))+sz);
 				glPopMatrix();
 			}
 		}
@@ -333,13 +352,18 @@ void SectorView::SetHyperspaceTarget(const SystemPath &path)
 
 	UpdateSystemLabels(m_targetSystemLabels, m_hyperspaceTarget);
 
-	m_hyperspaceLockLabel->SetText(stringf("[%0]", std::string(Lang::LOCKED)));
+	UpdateHyperspaceLockLabel();
 }
 
 void SectorView::FloatHyperspaceTarget()
 {
 	m_matchTargetToSelection = true;
-	m_hyperspaceLockLabel->SetText(stringf("[%0]", std::string(Lang::FOLLOWING_SELECTION)));
+	UpdateHyperspaceLockLabel();
+}
+
+void SectorView::UpdateHyperspaceLockLabel()
+{
+	m_hyperspaceLockLabel->SetText(stringf("[%0]", m_matchTargetToSelection ? std::string(Lang::FOLLOWING_SELECTION) : std::string(Lang::LOCKED)));
 }
 
 void SectorView::ResetHyperspaceTarget()
@@ -361,12 +385,6 @@ void SectorView::GotoSystem(const SystemPath &path)
 	m_posMovingTo.x = path.sectorX + p.x/Sector::SIZE;
 	m_posMovingTo.y = path.sectorY + p.y/Sector::SIZE;
 	m_posMovingTo.z = path.sectorZ + p.z/Sector::SIZE;
-}
-
-void SectorView::WarpToSystem(const SystemPath &path)
-{
-	GotoSystem(path);
-	m_pos = m_posMovingTo;
 }
 
 void SectorView::SetSelectedSystem(const SystemPath &path)
@@ -404,11 +422,12 @@ void SectorView::UpdateSystemLabels(SystemLabels &labels, const SystemPath &path
 {
 	Sector *sec = GetCached(path.sectorX, path.sectorY, path.sectorZ);
 	Sector *playerSec = GetCached(m_current.sectorX, m_current.sectorY, m_current.sectorZ);
-	const float dist = Sector::DistanceBetween(sec, path.systemIndex, playerSec, m_current.systemIndex);
 
-    if (labels.distance) {
-		char format[256];
-	
+	char format[256];
+
+	if (m_inSystem) {
+		const float dist = Sector::DistanceBetween(sec, path.systemIndex, playerSec, m_current.systemIndex);
+		
 		int fuelRequired;
 		double dur;
 		enum Ship::HyperjumpStatus jumpStatus;
@@ -440,6 +459,15 @@ void SectorView::UpdateSystemLabels(SystemLabels &labels, const SystemPath &path
 				break;
 		}
 	}
+
+	else if (path.IsSameSystem(Pi::player->GetHyperspaceDest())) {
+		snprintf(format, sizeof(format), "[ %s ]", Lang::IN_TRANSIT);
+		labels.distance->SetText(format);
+		labels.distance->Color(0.4f, 0.4f, 1.0f);
+	}
+
+	else
+		labels.distance->SetText("");
 
 	RefCountedPtr<StarSystem> sys = StarSystem::GetCached(path);
 
@@ -486,7 +514,7 @@ static void _draw_arrow(const vector3f &direction)
 	glEnable(GL_CULL_FACE);
 }
 
-void SectorView::DrawSector(int sx, int sy, int sz, const vector3f &playerAbsPos)
+void SectorView::DrawSector(int sx, int sy, int sz)
 {
 	Sector* ps = GetCached(sx, sy, sz);
 
@@ -572,7 +600,7 @@ void SectorView::DrawSector(int sx, int sy, int sz, const vector3f &playerAbsPos
 		glScalef(2,2,2);
 
 		// player location indicator
-		if (current == m_current) {
+		if (m_inSystem && current == m_current) {
 			glPushMatrix();
 			glDepthRange(0.2,1.0);
 			glColor3f(0,0,0.8);
@@ -590,7 +618,7 @@ void SectorView::DrawSector(int sx, int sy, int sz, const vector3f &playerAbsPos
 			glPopMatrix();
 		}
 		// hyperspace target indicator (if different from selection)
-		if (current == m_hyperspaceTarget && m_hyperspaceTarget != m_selected && m_hyperspaceTarget != m_current) {
+		if (current == m_hyperspaceTarget && m_hyperspaceTarget != m_selected && (!m_inSystem || m_hyperspaceTarget != m_current)) {
 			glPushMatrix();
 			glDepthRange(0.1,1.0);
 			glColor3f(0.3,0.3,0.3);
@@ -607,9 +635,11 @@ void SectorView::DrawSector(int sx, int sy, int sz, const vector3f &playerAbsPos
 			labelColor.b = labelColor.g = 1.0f;
 		}
 
-		float dist = Sector::DistanceBetween( ps, num, GetCached(m_current.sectorX, m_current.sectorY, m_current.sectorZ), m_current.systemIndex);
-		if (dist <= m_playerHyperspaceRange)
-			labelColor.a = 1.0f;
+		if (m_inSystem) {
+			float dist = Sector::DistanceBetween( ps, num, GetCached(m_current.sectorX, m_current.sectorY, m_current.sectorZ), m_current.systemIndex);
+			if (dist <= m_playerHyperspaceRange)
+				labelColor.a = 1.0f;
+		}
 
 		PutClickableLabel((*i).name, labelColor, current);
 		glDisable(GL_LIGHTING);
@@ -619,15 +649,14 @@ void SectorView::DrawSector(int sx, int sy, int sz, const vector3f &playerAbsPos
 }
 
 void SectorView::OnSwitchTo() {
-	UpdateSystemLabels(m_currentSystemLabels, m_current);
-	UpdateSystemLabels(m_selectedSystemLabels, m_selected);
-	UpdateSystemLabels(m_targetSystemLabels, m_hyperspaceTarget);
-
 	if (!m_onKeyPressConnection.connected())
 		m_onKeyPressConnection =
 			Pi::onKeyPress.connect(sigc::mem_fun(this, &SectorView::OnKeyPressed));
 
 	Update();
+
+	UpdateSystemLabels(m_selectedSystemLabels, m_selected);
+	UpdateSystemLabels(m_targetSystemLabels, m_hyperspaceTarget);
 }
 
 void SectorView::OnKeyPressed(SDL_keysym *keysym)
@@ -718,9 +747,22 @@ void SectorView::OnKeyPressed(SDL_keysym *keysym)
 void SectorView::Update()
 {
 	SystemPath last_current = m_current;
-	m_current = Pi::currentSystem->GetPath();
-	if (last_current != m_current)
+	bool last_inSystem = m_inSystem;
+
+	if (Pi::game->IsNormalSpace()) {
+		m_inSystem = true;
+		m_current = Pi::game->GetSpace()->GetStarSystem()->GetPath();
+	}
+	else {
+		m_inSystem = false;
+		m_current = Pi::player->GetHyperspaceDest();
+	}
+
+	if (last_inSystem != m_inSystem || last_current != m_current) {
 		UpdateSystemLabels(m_currentSystemLabels, m_current);
+		UpdateSystemLabels(m_selectedSystemLabels, m_selected);
+		UpdateSystemLabels(m_targetSystemLabels, m_hyperspaceTarget);
+	}
 
 	const float frameTime = Pi::GetFrameTime();
 

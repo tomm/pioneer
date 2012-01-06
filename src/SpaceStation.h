@@ -101,8 +101,8 @@ public:
 	virtual const SBody *GetSBody() const { return m_sbody; }
 	void ReplaceShipOnSale(int idx, const ShipFlavour *with);
 	std::vector<ShipFlavour> &GetShipsOnSale() { return m_shipsOnSale; }
-	virtual void PostLoadFixup();
-	virtual void NotifyDeleted(const Body* const deletedBody);
+	virtual void PostLoadFixup(Space *space);
+	virtual void NotifyRemoved(const Body* const removedBody);
 	int GetFreeDockingPort(); // returns -1 if none free
 	int GetMyDockingPort(const Ship *s) const {
 		for (int i=0; i<MAX_DOCKING_PORTS; i++) {
@@ -125,10 +125,13 @@ public:
 	const BBAdvert *GetBBAdvert(int ref);
 	bool RemoveBBAdvert(int ref);
 	const std::list<const BBAdvert*> GetBBAdverts();
+
+	// use docking bay position, if player has been granted permission
+	virtual vector3d GetTargetIndicatorPosition(const Frame *relTo) const;
 	
 protected:
-	virtual void Save(Serializer::Writer &wr);
-	virtual void Load(Serializer::Reader &rd);
+	virtual void Save(Serializer::Writer &wr, Space *space);
+	virtual void Load(Serializer::Reader &rd, Space *space);
 	/* MarketAgent stuff */
 	void Bought(Equip::Type t);
 	void Sold(Equip::Type t);

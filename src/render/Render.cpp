@@ -1,6 +1,8 @@
 #include "Render.h"
 #include "RenderTarget.h"
 #include <stdexcept>
+#include <sstream>
+#include <iterator>
 
 static GLuint boundArrayBufferObject = 0;
 static GLuint boundElementArrayBufferObject = 0;
@@ -115,6 +117,8 @@ public:
 // Render target with 24-bit depth attachment
 class SceneTarget : public RectangleTarget {
 public:
+	SceneTarget() { }
+
 	SceneTarget(int w, int h, GLint format,
 		GLint internalFormat, GLenum type) {
 		m_w = w;
@@ -147,8 +151,80 @@ public:
 	~SceneTarget() {
 		glDeleteRenderbuffersEXT(1, &m_depth);
 	}
-private:
+protected:
 	GLuint m_depth;
+};
+
+// Render target with 24-bit depth attachment
+class MultiSampledSceneTarget : public SceneTarget {
+public:
+	MultiSampledSceneTarget(int w, int h, GLint format,
+		GLint internalFormat, GLenum type, int samples) {
+		m_w = w;
+		m_h = h;
+
+		// multisampled fbo
+		glGenFramebuffersEXT(1, &m_msFbo);
+		glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, m_msFbo);
+		// ms color buffer
+		glGenRenderbuffersEXT(1, &m_msColor);
+		glBindRenderbufferEXT(GL_RENDERBUFFER_EXT, m_msColor);
+		glRenderbufferStorageMultisampleEXT(GL_RENDERBUFFER_EXT, samples, internalFormat, m_w, m_h);
+		// ms depth buffer
+		glGenRenderbuffersEXT(1, &m_depth);
+		glBindRenderbufferEXT(GL_RENDERBUFFER_EXT, m_depth);
+		glRenderbufferStorageMultisampleEXT(GL_RENDERBUFFER_EXT, samples, GL_DEPTH_COMPONENT24, m_w, m_h);
+		// attach
+		glFramebufferRenderbufferEXT(GL_FRAMEBUFFER_EXT, GL_COLOR_ATTACHMENT0_EXT, GL_RENDERBUFFER_EXT, m_msColor);
+		glFramebufferRenderbufferEXT(GL_FRAMEBUFFER_EXT, GL_DEPTH_ATTACHMENT_EXT,  GL_RENDERBUFFER_EXT, m_depth);
+
+		CheckCompleteness();
+
+		glGenFramebuffersEXT(1, &m_fbo);
+		glGenTextures(1, &m_texture);
+		glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, m_fbo);
+		glBindTexture(GL_TEXTURE_RECTANGLE, m_texture);
+		glTexParameteri(GL_TEXTURE_RECTANGLE, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+		glTexParameteri(GL_TEXTURE_RECTANGLE, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+		glTexParameteri(GL_TEXTURE_RECTANGLE, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+		glTexParameteri(GL_TEXTURE_RECTANGLE, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+		glTexImage2D(GL_TEXTURE_RECTANGLE, 0, internalFormat, w, h, 0,
+			format, type, 0);
+		glFramebufferTexture2DEXT(GL_FRAMEBUFFER_EXT, GL_COLOR_ATTACHMENT0_EXT,
+			GL_TEXTURE_RECTANGLE, m_texture, 0);
+
+		CheckCompleteness();
+		glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, 0);
+	}
+
+	~MultiSampledSceneTarget() {
+		glDeleteRenderbuffersEXT(1, &m_msColor);
+		glDeleteFramebuffersEXT(1, &m_msFbo);
+	}
+
+	virtual void BeginRTT() {
+		//begin rendering to multisampled FBO
+		glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, m_msFbo);
+		glPushAttrib(GL_VIEWPORT_BIT);
+		glViewport(0, 0, m_w, m_h);
+	}
+
+	virtual void EndRTT() {
+		//blit multisampled rendering to normal fbo
+		glPopAttrib();
+		glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, 0);
+
+		glBindFramebufferEXT(GL_READ_FRAMEBUFFER_EXT, m_msFbo);
+		glBindFramebufferEXT(GL_DRAW_FRAMEBUFFER_EXT, m_fbo);
+		//depth testing has already been done, so color is enough
+		glBlitFramebufferEXT(0, 0, m_w, m_h, 0, 0, m_w, m_h, GL_COLOR_BUFFER_BIT, GL_NEAREST);
+
+		glBindFramebufferEXT(GL_READ_FRAMEBUFFER_EXT, 0);
+		glBindFramebufferEXT(GL_DRAW_FRAMEBUFFER_EXT, 0);
+	}
+private:
+	GLuint m_msFbo;
+	GLuint m_msColor;
 };
 
 void BindArrayBuffer(GLuint bo)
@@ -196,11 +272,30 @@ static struct postprocessBuffers_t {
 		width = screen_width;
 		height = screen_height;
 
+		GLint msSamples = 0;
+		glGetIntegerv(GL_SAMPLES, &msSamples);
+
 		halfSizeRT  = new RectangleTarget(width>>1, height>>1, GL_RGB, GL_RGB16F_ARB, GL_HALF_FLOAT_ARB);
 		luminanceRT = new LuminanceTarget(128, 128);
 		bloom1RT = new RectangleTarget(width>>2, height>>2, GL_RGB, GL_RGB16F_ARB, GL_HALF_FLOAT_ARB);
 		bloom2RT = new RectangleTarget(width>>2, height>>2, GL_RGB, GL_RGB16F_ARB, GL_HALF_FLOAT_ARB);
-		sceneRT = new SceneTarget(width, height, GL_RGB, GL_RGB16F_ARB, GL_HALF_FLOAT_ARB);
+		sceneRT = 0;
+		if (msSamples > 1) {
+			try {
+				sceneRT = new MultiSampledSceneTarget(width, height, GL_RGB, GL_RGB16F_ARB, GL_HALF_FLOAT_ARB, msSamples);
+			} catch (RenderTarget::fbo_incomplete &ex) {
+				if (ex.GetErrorCode() == GL_FRAMEBUFFER_UNSUPPORTED_EXT) {
+					// try again without multisampling
+					glDisable(GL_MULTISAMPLE);
+					sceneRT = 0;
+					msSamples = 1;
+				} else {
+					throw;
+				}
+			}
+		}
+		if (!sceneRT)
+			sceneRT = new SceneTarget(width, height, GL_RGB, GL_RGB16F_ARB, GL_HALF_FLOAT_ARB);
 
 		postprocessBloom1Downsample = new PostprocessDownsampleShader("postprocessBloom1Downsample", "#extension GL_ARB_texture_rectangle : enable\n");
 		postprocessBloom2Downsample = new PostprocessShader("postprocessBloom2Downsample", "#extension GL_ARB_texture_rectangle : enable\n");
@@ -351,6 +446,9 @@ static struct postprocessBuffers_t {
 void Init(int screen_width, int screen_height)
 {
 	if (initted) return;
+
+	PrintGLInfo();
+
 	shadersAvailable = glewIsSupported("GL_VERSION_2_0");
 	shadersEnabled = shadersAvailable;
 	printf("GLSL shaders %s.\n", shadersEnabled ? "on" : "off");
@@ -360,11 +458,16 @@ void Init(int screen_width, int screen_height)
 	if (hdrAvailable) {
 		try {
 			s_hdrBufs.CreateBuffers(screen_width, screen_height);
-		} catch (std::runtime_error &ex) {
-			fprintf(stderr, "HDR initialization error: %s\n", ex.what());
+		} catch (RenderTarget::fbo_incomplete &ex) {
+			if (ex.GetErrorCode() == GL_FRAMEBUFFER_UNSUPPORTED_EXT) {
+				fprintf(stderr, "HDR render targets unsupported: forcing HDR off\n");
+			} else {
+				fprintf(stderr, "HDR initialization error: %s\n", ex.what());
+			}
 			s_hdrBufs.DeleteBuffers();
 			hdrAvailable = false;
 			hdrEnabled = false;
+			glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, 0);
 		}
 	}
 	
@@ -567,6 +670,38 @@ bool State::UseProgram(Shader *shader)
 	} else {
 		return false;
 	}
+}
+
+void PrintGLInfo() {
+	std::string fname = GetPiUserDir() + "opengl.txt";
+	FILE *f = fopen(fname.c_str(), "w");
+	if (!f) return;
+
+	std::ostringstream ss;
+	ss << "OpenGL version " << glGetString(GL_VERSION);
+	ss << ", running on " << glGetString(GL_VENDOR);
+	ss << " " << glGetString(GL_RENDERER) << std::endl;
+
+	ss << "Available extensions:" << std::endl;
+	GLint numext = 0;
+	glGetIntegerv(GL_NUM_EXTENSIONS, &numext);
+	if (glewIsSupported("GL_VERSION_3_0")) {
+		for (int i = 0; i < numext; ++i) {
+			ss << "  " << glGetStringi(GL_EXTENSIONS, i) << std::endl;
+		}
+	}
+	else {
+		ss << "  ";
+		std::istringstream ext(reinterpret_cast<const char *>(glGetString(GL_EXTENSIONS)));
+		std::copy(
+			std::istream_iterator<std::string>(ext),
+			std::istream_iterator<std::string>(),
+			std::ostream_iterator<std::string>(ss, "\n  "));
+	}
+
+	fprintf(f, "%s", ss.str().c_str());
+	fclose(f);
+	printf("OpenGL system information saved to %s\n", fname.c_str());
 }
 
 } /* namespace Render */
