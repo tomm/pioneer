@@ -3,6 +3,7 @@
 #include "render/Render.h"
 #include "TextureManager.h"
 #include "Pi.h"
+#include "Game.h"
 
 SHADER_CLASS_BEGIN(ParticleShader)
 	SHADER_VERTEX_ATTRIB_FLOAT3(position)
@@ -41,7 +42,7 @@ void ParticleGroup::AddParticles(void (*vertexCallback)(Vertex &, int, void*), i
 {
 	int min = m_numParticles;
 	int max = 0;
-	float now = Pi::GetGameTime();
+	float now = Pi::game->GetTime();
 	for (int i=0; num && (i<m_numParticles); i++) {
 		if (m_data[i].birthTime + m_data[i].duration < now) {
 			min = std::min(min, i);
@@ -80,7 +81,7 @@ void ParticleGroup::Init(int numParticles)
 void ParticleGroup::Render()
 {
 	int maxActive = -1;
-	const float now = (float)Pi::GetGameTime();
+	const float now = (float)Pi::game->GetTime();
 	for (int i=m_numParticles-1; i>=0; i--) {
 		if (m_data[i].birthTime + m_data[i].duration > now) {
 			maxActive = i;

@@ -1,5 +1,6 @@
 #include "libs.h"
 #include "Pi.h"
+#include "Game.h"
 #include "Player.h"
 #include "Sfx.h"
 #include "Frame.h"
@@ -193,7 +194,7 @@ static void myCallback(ParticleGroup::Vertex &v, int num, void *sfx)
 	v.texTransform[0] = 0.25f * (float)Pi::rng.Int32(4);
 	v.texTransform[1] = 0.0f;
 	v.angVelocity = Pi::rng.Double(-10.0, 10.0);
-	v.birthTime = Pi::GetGameTime();
+	v.birthTime = Pi::game->GetTime();
 	v.duration = Pi::rng.Double(1.0, 5.0);
 	v.pointSize = Pi::rng.Double(100.0, 5000.0);
 }
